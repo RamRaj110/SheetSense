@@ -14,7 +14,7 @@ const app = express();
 // const uploadRoutes = require("./routes/upload"); // ✅ new
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin:" https://sheet-sense.vercel.app/" || 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.json());
