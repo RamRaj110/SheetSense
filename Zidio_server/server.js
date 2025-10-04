@@ -11,16 +11,19 @@ import cors from 'cors';
 dotenv.config();
 
 const app = express();
-// const uploadRoutes = require("./routes/upload"); // ✅ new
 
+// CORS configuration
 app.use(cors({
-  origin:" https://sheet-sense.vercel.app/" || 'http://localhost:5173',
-  credentials: true
+    origin: "https://sheet-sense.vercel.app",
+    credentials: true
 }));
+
 app.use(express.json());
+
+// API routes
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/admin', adminRoutes);
 app.use("/api", uploadRoutes);
 
 // Error handling middleware

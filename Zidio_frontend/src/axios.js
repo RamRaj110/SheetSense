@@ -1,11 +1,10 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL:"https://sheetsense.onrender.com"|| 'http://localhost:5000/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: 'https://sheetsense.onrender.com/api',
+  withCredentials: true,
 });
+
 
 // Add token to requests
 instance.interceptors.request.use((config) => {
