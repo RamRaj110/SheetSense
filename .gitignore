@@ -1,0 +1,27 @@
+# Dependencies
+/node_modules
+Zidio_server/node_modules
+Zidio_frontend/node_modules
+
+# Build output
+Zidio_frontend/dist
+
+# Environment variables
+.env
+Zidio_server/.env
+Zidio_frontend/.env
+
+# Uploads
+Zidio_server/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE and system files
+.vscode/
+.idea/
+.DS_Store
