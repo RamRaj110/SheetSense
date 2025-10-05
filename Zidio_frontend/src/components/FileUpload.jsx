@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSelector } from "react-redux";
+import axios from '../axios'; // Import the configured axios instance
 
 function UploadForm({ onUploadSuccess }) {
   const { token } = useSelector((state) => state.auth);
   const [file, setFile] = useState(null);
-  const [parsedData, setParsedData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -51,21 +51,14 @@ function UploadForm({ onUploadSuccess }) {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:5000/api/upload", {
-        method: "POST",
+      // Use the axios instance. Base URL and Auth token are handled automatically.
+      const response = await axios.post("/upload", formData, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Upload failed");
-      }
-
-      onUploadSuccess?.(result.fileInfo);
+      onUploadSuccess?.(response.data.fileInfo);
       setFile(null);
       const fileInput = document.querySelector('input[type="file"]');
       if (fileInput) fileInput.value = "";
@@ -73,7 +66,7 @@ function UploadForm({ onUploadSuccess }) {
       setError({ type: 'success', message: 'File uploaded successfully' });
       setTimeout(() => setError(null), 3000);
     } catch (err) {
-      setError({ type: 'error', message: err.message });
+      setError({ type: 'error', message: err.response?.data?.message || err.message });
     } finally {
       setLoading(false);
     }

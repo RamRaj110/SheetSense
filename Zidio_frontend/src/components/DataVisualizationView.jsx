@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import ChartDisplay from './ChartDisplay';
+import axios from '../axios'; // Import the configured axios instance
 
 const DataVisualizationView = ({ files }) => {
   const [selectedFileId, setSelectedFileId] = useState('');
@@ -27,17 +28,10 @@ const DataVisualizationView = ({ files }) => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`http://localhost:5000/api/files/${selectedFileId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        // Use axios instance - baseURL and token are handled automatically
+        const response = await axios.get(`/files/${selectedFileId}`);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch file data');
-        }
+        const data = response.data;
 
         if (!data.file?.data || !Array.isArray(data.file.data)) {
           throw new Error('Invalid data format received from server');
@@ -56,7 +50,7 @@ const DataVisualizationView = ({ files }) => {
         setFileData(data.file.data);
       } catch (err) {
         console.error('Error fetching file data:', err);
-        setError(err.message);
+        setError(err.response?.data?.message || err.message);
         setFileData(null);
       } finally {
         setLoading(false);
@@ -81,7 +75,7 @@ const DataVisualizationView = ({ files }) => {
         >
           <option value="">Choose a file</option>
           {files.filter(f => f.type === 'excel').map((file) => (
-            <option key={file.id} value={file.id}>
+            <option key={file._id} value={file._id}>
               {file.name}
             </option>
           ))}
@@ -96,7 +90,7 @@ const DataVisualizationView = ({ files }) => {
 
       {error && (
         <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 text-red-400 text-center">
-          {error.message}
+          {error}
         </div>
       )}
 
@@ -143,7 +137,6 @@ const DataVisualizationView = ({ files }) => {
                   {fileData.slice(0, 5).map((row, i) => (
                     <tr key={i}>
                       {Object.values(row).map((cell, j) => {
-                        console.log("Cell value:", cell);
                         return (
                           <td key={j} className="px-4 py-3 text-sm text-gray-300">
                             {typeof cell === 'object' ? JSON.stringify(cell) : String(cell)}
