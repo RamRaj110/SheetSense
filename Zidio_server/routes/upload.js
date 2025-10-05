@@ -1,11 +1,30 @@
 import express from 'express';
 import multer from 'multer';
 import xlsx from 'xlsx';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { userAuth } from '../middleware/userAuth.js';
 import File from '../models/File.js';
 import User from '../models/User.js';
 
 const router = express.Router();
+
+// --- Start of Fix ---
+
+// ES Module equivalent for __dirname to create absolute paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Define the absolute path for the uploads directory
+const uploadDir = path.join(__dirname, '../uploads');
+
+// Ensure the upload directory exists. This is crucial for deployment.
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// --- End of Fix ---
 
 // Updated MIME types to include PDF
 const allowedMimes = [
@@ -16,7 +35,7 @@ const allowedMimes = [
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadDir); // Use the absolute path
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -70,6 +89,8 @@ router.post("/upload", userAuth, upload.single("file"), async (req, res) => {
       data = xlsx.utils.sheet_to_json(sheet);
       rowCount = data.length;
 
+      // WARNING: Storing large JSON arrays in MongoDB can exceed the 16MB document size limit.
+      // For production, consider storing only metadata and fetching file content on demand.
       if (!data.length) {
         return res.status(400).json({
           success: false,
@@ -93,25 +114,25 @@ router.post("/upload", userAuth, upload.single("file"), async (req, res) => {
     await file.save();
 
     // Add file reference to user
+    // FIX: Use req.user._id, which is the standard MongoDB identifier.
     await User.findByIdAndUpdate(
-      req.user.userId,
+      req.user._id,
       { $push: { files: file._id } }
     );
 
     const fileInfo = {
-      originalName: req.file.originalname,
+      name: req.file.originalname, // Use 'name' to be consistent with File model
       size: req.file.size,
       uploadDate: file.uploadedAt,
       rowCount: rowCount,
       type: type,
-      id: file._id
+      _id: file._id // Use '_id'
     };
 
     res.json({ 
       success: true, 
       message: "File uploaded and data stored successfully",
-      fileInfo,
-      data: type === 'excel' ? data : [] 
+      fileInfo
     });
 
   } catch (err) {
