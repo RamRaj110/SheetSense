@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FiUpload, FiBarChart2, FiFileText, FiFolder, FiUser, FiSearch, FiTrash2, FiDownload } from 'react-icons/fi';
+import { FiUpload, FiBarChart2, FiFileText, FiFolder, FiTrash2, FiDownload } from 'react-icons/fi';
 import ProfileDropdown from "@/components/ProfileDropdown";
-import UploadForm from "@/components/FileUpload";
+import FileUpload from "@/components/FileUpload"; // Corrected component name
 import DataVisualizationView from "@/components/DataVisualizationView";
 import { Button } from "@/components/ui/button";
-import axios from 'axios';
+import axios from '../../axios'; // Import your configured axios instance
 import { Input } from "@/components/ui/input";
 import { useSelector } from "react-redux";
 
@@ -39,18 +39,14 @@ const UserDashboard = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.delete(`http://localhost:5000/api/files/${fileId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axios.delete(`/files/${fileId}`);
 
       if (response.status !== 200) {
         throw new Error(response.data.message || 'Failed to delete file');
       }
 
-      setUserFiles(prev => prev.filter(file => file.id !== fileId));
-      if (selectedFile?.id === fileId) {
+      setUserFiles(prev => prev.filter(file => file._id !== fileId));
+      if (selectedFile?._id === fileId) {
         setSelectedFile(null);
       }
 
@@ -67,18 +63,8 @@ const UserDashboard = () => {
     const fetchFiles = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/files', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch files');
-        }
-
-        const data = await response.json();
-        setUserFiles(data.files);
+        const response = await axios.get('/files');
+        setUserFiles(response.data.files);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -86,11 +72,13 @@ const UserDashboard = () => {
       }
     };
 
-    fetchFiles();
+    if (token) {
+      fetchFiles();
+    }
   }, [token]);
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && userFiles.length === 0) { // Show loader only on initial load
       return (
         <div className="flex items-center justify-center h-full">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -113,13 +101,21 @@ const UserDashboard = () => {
         return <DataVisualizationView files={userFiles} />;
       case 'my-files':
         return (
-          <MyFilesView 
-            files={userFiles}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onFileSelect={setSelectedFile}
-            onFileDelete={handleFileDelete}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <MyFilesView 
+                files={userFiles}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onFileSelect={setSelectedFile}
+                onFileDelete={handleFileDelete}
+                selectedFile={selectedFile} 
+              />
+            </div>
+            <div>
+              <FileDetailsView file={selectedFile} />
+            </div>
+          </div>
         );
       default:
         return <UploadView onUploadSuccess={(file) => setUserFiles(prev => [...prev, file])} />;
@@ -159,39 +155,25 @@ const UserDashboard = () => {
   );
 };
 
-// Placeholder Components for different views
 const UploadView = ({ onUploadSuccess }) => {
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const handleUploadSuccess = (file) => {
-    onUploadSuccess(file);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-  };
-
   return (
     <div className="bg-gray-800/30 backdrop-blur-xl border border-gray-700 rounded-lg p-8">
       <div className="max-w-2xl mx-auto">
         <h3 className="text-2xl font-semibold text-white mb-6 text-center">Upload Your File</h3>
-        
-        
-        <UploadForm onUploadSuccess={handleUploadSuccess} />
+        <FileUpload onUploadSuccess={onUploadSuccess} />
       </div>
     </div>
   );
 };
 
-// DataVisualizationView is imported from @/components/DataVisualizationView
-
 const FileDetailsView = ({ file }) => {
   const [fileData, setFileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { token } = useSelector((state) => state.auth);
 
   useEffect(() => {
     const fetchFileData = async () => {
-      if (!file?.id) {
+      if (!file?._id) {
         setFileData(null);
         return;
       }
@@ -199,18 +181,8 @@ const FileDetailsView = ({ file }) => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`http://localhost:5000/api/files/${file.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch file data');
-        }
-
-        const data = await response.json();
-        setFileData(data.file);
+        const response = await axios.get(`/files/${file._id}`);
+        setFileData(response.data.file);
       } catch (err) {
         setError(err.message);
         setFileData(null);
@@ -220,7 +192,7 @@ const FileDetailsView = ({ file }) => {
     };
 
     fetchFileData();
-  }, [file?.id, token]);
+  }, [file?._id]);
 
   if (!file) {
     return (
@@ -306,14 +278,11 @@ const FileDetailsView = ({ file }) => {
               <tbody className="divide-y divide-gray-700">
                 {fileData.data.slice(0, 10).map((row, i) => (
                   <tr key={i}>
-                    {Object.values(row).map((cell, j) => {
-                      console.log("Cell value:", cell);
-                      return (
-                        <td key={j} className="px-4 py-3 text-sm text-gray-300">
-                          {typeof cell === 'object' ? JSON.stringify(cell) : String(cell)}
-                        </td>
-                      );
-                    })}
+                    {Object.values(row).map((cell, j) => (
+                      <td key={j} className="px-4 py-3 text-sm text-gray-300">
+                        {typeof cell === 'object' ? JSON.stringify(cell) : String(cell)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -325,21 +294,19 @@ const FileDetailsView = ({ file }) => {
   );
 };
 
-const MyFilesView = ({ files, searchQuery, onSearchChange, onFileSelect, onFileDelete }) => {
-  const [selectedFile, setSelectedFile] = useState(null);
+const MyFilesView = ({ files, searchQuery, onSearchChange, onFileSelect, onFileDelete, selectedFile }) => {
   const { token } = useSelector((state) => state.auth);
   const filteredFiles = files.filter(file => 
     file && file.name && file.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleFileSelect = (file) => {
-    setSelectedFile(file === selectedFile ? null : file);
-    onFileSelect(file);
+    onFileSelect(file === selectedFile ? null : file);
   };
 
   const handleDownload = async (fileId) => {
     try {
-      window.location.href = `http://localhost:5000/api/files/${fileId}/download?token=${token}`;
+      window.location.href = `${axios.defaults.baseURL}/files/${fileId}/download?token=${token}`;
     } catch (err) {
       console.error('Download failed:', err);
     }
@@ -365,64 +332,55 @@ const MyFilesView = ({ files, searchQuery, onSearchChange, onFileSelect, onFileD
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredFiles.map((file, index) => (
               <div 
-                key={index} 
+                key={file._id || index}
                 className={`p-4 bg-gray-800 rounded-lg border transition-colors cursor-pointer ${
-                  selectedFile?.id === file.id 
+                  selectedFile?._id === file._id 
                     ? 'border-indigo-500 bg-gray-700' 
                     : 'border-gray-700 hover:border-gray-500'
                 }`}
                 onClick={() => handleFileSelect(file)}
               >
-                <h3 className="text-white font-medium mb-2 truncate">{file.name}</h3>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400 text-sm">
-                    {file.type === 'excel' ? '📊 Excel' : '📄 PDF'}
-                  </span>
-                  <span className="text-gray-400 text-sm">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                </div>
-                <p className="text-gray-400 text-sm mb-3">
-                  Uploaded on {new Date(file.uploadDate).toLocaleDateString()}
-                </p>
-                <div className="flex justify-end items-center mt-4 gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-400 hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDownload(file.id);
-                    }}
-                  >
-                    <FiDownload size={16} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-400 hover:text-red-300"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onFileDelete(file.id);
-                    }}
-                  >
-                    <FiTrash2 size={16} />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FiFileText className="text-indigo-400" size={20} />
+                    <span className="font-medium truncate">{file.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gray-400 hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(file._id);
+                      }}
+                    >
+                      <FiDownload size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-400 hover:text-red-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFileDelete(file._id);
+                      }}
+                    >
+                      <FiTrash2 size={16} />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-gray-400 text-center py-8">
-            {searchQuery ? 'No files match your search' : 'No files uploaded yet'}
-          </p>
+          <div className="text-center py-12 text-gray-500">
+            <p>No files found.</p>
+          </div>
         )}
       </div>
-
-      {selectedFile && <FileDetailsView file={selectedFile} />}
     </div>
   );
 };
-
 
 export default UserDashboard;

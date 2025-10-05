@@ -4,7 +4,6 @@ import authRoutes from './routes/authRoutes.js';
 import uploadRoutes from './routes/upload.js'; 
 import adminRoutes from './routes/adminRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
-
 import dotenv from 'dotenv';
 import cors from 'cors';
 
@@ -15,6 +14,7 @@ const app = express();
 // CORS configuration
 app.use(cors({
     origin: "https://sheet-sense.vercel.app",
+    // origin: "http://localhost:5173",
     credentials: true
 }));
 
